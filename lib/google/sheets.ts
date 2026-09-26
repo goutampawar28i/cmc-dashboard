@@ -95,6 +95,7 @@ const cmcs: CMC[] = cmcRows
     email: str(r[2]),
     active: str(r[3]).toUpperCase() === "TRUE",
     section: str(r[4]),
+    contactNumber: Number(r[5]) || 0,
     sheetName: str(r[1]).replace(/\s+/g, "_"),
   }));
 

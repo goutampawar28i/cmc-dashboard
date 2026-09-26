@@ -61,12 +61,12 @@ export interface CMC {
   cmcId: string;
   name: string;
   email: string;
-  batch: string;
+  batch?: string;
   section: string;
   active: boolean;
   contactNumber: number;
-  assignedTarget?: number; // optional field for assigned target
-  sheetName: string; // tab name this CMC's activity lives in, e.g. "Rahul_Sharma"
+  assignedTarget?: number;
+  sheetName: string;
 }
 
 export interface Company {
