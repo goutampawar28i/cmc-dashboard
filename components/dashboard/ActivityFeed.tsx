@@ -1,5 +1,5 @@
 import type { ActivityRecord } from "@/types";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTime, formatDate } from "@/lib/utils";
 
 function describe(a: ActivityRecord): string {
   switch (a.activity) {
@@ -25,6 +25,13 @@ export function ActivityFeed({ activities }: { activities: ActivityRecord[] }) {
             <span className="font-medium">{a.cmcName}</span> {describe(a)}
           </p>
           <p className="mt-0.5 text-xs text-muted">{formatRelativeTime(a.date)}</p>
+          {(a.meetingDate || a.campusVisitDate) && (
+            <p className="mt-0.5 text-xs text-muted">
+              {a.meetingDate ? `Meeting: ${formatDate(a.meetingDate)}` : ""}
+              {a.meetingDate && a.campusVisitDate ? " · " : ""}
+              {a.campusVisitDate ? `Campus Visit: ${formatDate(a.campusVisitDate)}` : ""}
+            </p>
+          )}
         </div>
       ))}
       {sorted.length === 0 && <p className="px-4 py-6 text-sm text-muted">No recent activity.</p>}

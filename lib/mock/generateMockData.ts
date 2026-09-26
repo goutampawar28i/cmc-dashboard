@@ -113,8 +113,9 @@ export function generateMockDataset(
       email: `${slug(name).toLowerCase()}@jaipuria.ac.in`,
       batch: "PGDM 2026-28",
       active: rand() > 0.08, // ~92% active
-      assignedTarget: pick([40, 50, 50, 60]),
       sheetName: slug(name),
+      section: pick(["A", "B", "C"]),
+      contactNumber: Number(`9${Math.floor(100000000 + rand() * 900000000)}`),
     });
   }
 

@@ -30,11 +30,14 @@ export function CmcProfileCard({ cmc }: { cmc: CMC }) {
               <p className="mt-1 truncate text-sm text-[#666]">
                 {cmc.email}
               </p>
+
+              <p className="mt-1 truncate text-sm text-[#666]">
+                Contact Number: {cmc.contactNumber ?? "NA"}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 border-t border-[#e5e5e5] lg:border-l lg:border-t-0">
           <ProfileStat
             label="CMC ID"

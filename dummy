@@ -1,0 +1,461 @@
+// import "server-only";
+// import { sheets } from "@googleapis/sheets";
+// import { JWT } from "google-auth-library";
+// import type {
+//   ActivityRecord,
+//   CMC,
+//   Company,
+//   DataQualityIssue,
+//   OutreachChannel,
+//   ActivityType,
+//   OutreachStatus,
+//   RawDataset,
+// } from "@/types";
+// import { generateMockDataset } from "@/lib/mock/generateMockData";
+
+
+// const REQUIRED_ENV = [
+//   "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+//   "GOOGLE_PRIVATE_KEY",
+//   "GOOGLE_SHEET_ID",
+// ] as const;
+
+// function hasGoogleCredentials(): boolean {
+//   return REQUIRED_ENV.every((key) => !!process.env[key]);
+// }
+
+// function getSheetsClient() {
+//   const auth = new JWT({
+//     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+//     // Vercel env vars store literal \n, so they must be un-escaped.
+//     key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+//     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+//   });
+//   return sheets({ version: "v4", auth });
+// }
+
+// let cache: { data: RawDataset; fetchedAt: number } | null = null;
+// const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes, matches the "2-5 min" spec
+
+// // In dev mode, Next.js reloads this module on every file save (Fast Refresh),
+// // which would normally wipe the `cache` variable above and trigger a fresh
+// // Google Sheets fetch on the next page load. Stashing it on `globalThis`
+// // keeps it alive across those reloads, so we don't burn API quota just from
+// // editing code. In production this has no effect (module is loaded once).
+// declare global {
+//   // eslint-disable-next-line no-var
+//   var __sheetsCache: { data: RawDataset; fetchedAt: number } | null | undefined;
+// }
+// if (process.env.NODE_ENV !== "production") {
+//   if (globalThis.__sheetsCache) cache = globalThis.__sheetsCache;
+// }
+// function setCache(next: { data: RawDataset; fetchedAt: number } | null) {
+//   cache = next;
+//   if (process.env.NODE_ENV !== "production") {
+//     globalThis.__sheetsCache = next;
+//   }
+// }
+
+// export async function getDataset(forceRefresh = false): Promise<RawDataset> {
+//   if (!hasGoogleCredentials()) {
+//     if (!cache || forceRefresh) {
+//       setCache({ data: generateMockDataset(), fetchedAt: Date.now() });
+//     }
+//     return cache!.data;
+//   }
+
+//   const isFresh = cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
+//   if (isFresh && !forceRefresh) {
+//     return cache!.data;
+//   }
+
+//   try {
+//     const data = await fetchFromGoogleSheets();
+//     setCache({ data, fetchedAt: Date.now() });
+//     return data;
+//     } catch (err) {
+//     console.error("Google Sheets sync failed:", err);
+//     if (cache) {
+//       return { ...cache.data, source: "cache" };
+//     }
+//     const reason = err instanceof Error ? err.message : String(err);
+//     const detail = process.env.NODE_ENV === "development" ? ` Reason: ${reason}` : "";
+//     throw new Error(
+//       `Unable to sync Google Sheets and no cached data is available.${detail}`
+//     );
+//   }
+// }
+
+// async function fetchFromGoogleSheets(): Promise<RawDataset> {
+//   const sheets = getSheetsClient();
+//   const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
+
+//   const meta = await sheets.spreadsheets.get({ spreadsheetId });
+//   const tabNames = (meta.data.sheets ?? [])
+//     .map((s) => s.properties?.title)
+//     .filter((t): t is string => !!t);
+
+//   if (!tabNames.includes("CMC_Master")) {
+//     throw new Error("CMC_Master sheet not found in the spreadsheet.");
+//   }
+//   if (!tabNames.includes("Company_Master")) {
+//     throw new Error("Company_Master sheet not found in the spreadsheet.");
+//   }
+
+//   // First batch: just the two master tabs, so we can figure out each
+//   // CMC's sheet name before asking for their individual tabs.
+//   const mastersResult = await sheets.spreadsheets.values.batchGet({
+//     spreadsheetId,
+//     ranges: ["CMC_Master!A2:F1000", "Company_Master!A2:J5000"],
+//   });
+//   const [cmcRows, companyRows] = (mastersResult.data.valueRanges ?? []).map(
+//     (vr) => (vr.values as string[][]) ?? []
+//   );
+
+//   const cmcs: CMC[] = cmcRows
+//   .filter((r) => r[0])
+//   .map((r) => ({
+//     cmcId: str(r[0]),
+//     name: str(r[1]),
+//     email: str(r[2]),
+//     batch: "",
+//     active: str(r[3]).toUpperCase() === "TRUE",
+//      section: str(r[4]),
+//     contactNumber: str(r[5]),
+//     sheetName: str(r[1]).replace(/\s+/g, "_"),
+//   }));
+
+//   const companies: Company[] = companyRows
+//     .filter((r) => r[0])
+//     .map((r) => ({
+//       companyId: str(r[0]),
+//       companyName: str(r[1]),
+//       industry: str(r[2]),
+//       website: str(r[3]) || undefined,
+//       assignedCmcId: str(r[4]) || undefined,
+//       primaryContact: str(r[5]) || undefined,
+//       contactEmail: str(r[6]) || undefined,
+//       contactPhone: str(r[7]) || undefined,
+//       status: (str(r[8]) as OutreachStatus) || undefined,
+//       createdDate: str(r[9]) || undefined,
+//     }));
+
+//   // Second batch: every CMC's activity tab, in ONE call instead of one
+//   // call per person. Skip tabs that don't exist yet.
+//   const activeCmcs = cmcs.filter((cmc) => tabNames.includes(cmc.sheetName));
+//   let activities: ActivityRecord[] = [];
+
+//   if (activeCmcs.length > 0) {
+//     const activityRanges = activeCmcs.map((cmc) => `${cmc.sheetName}!A2:Q10000`);
+//     const activityResult = await sheets.spreadsheets.values.batchGet({
+//       spreadsheetId,
+//       ranges: activityRanges,
+//     });
+//     const valueRanges = activityResult.data.valueRanges ?? [];
+
+//     activities = activeCmcs.flatMap((cmc, i) => {
+//       const rows = (valueRanges[i]?.values as string[][]) ?? [];
+//       return rowsToActivities(rows, cmc);
+//     });
+//   }
+
+//   const issues = validateActivities(activities, companies, cmcs);
+
+//   return {
+//     cmcs,
+//     companies,
+//     activities,
+//     issues,
+//     lastSynced: new Date().toISOString(),
+//     source: "google-sheets",
+//   };
+// }
+
+// function rowsToActivities(rows: string[][], cmc: CMC): ActivityRecord[] {
+//   return rows
+//     .filter((r) => r[0] || r[2]) // has a date or a company name
+//     .map((r, idx) => ({
+//       recordId: `${cmc.cmcId}-${idx + 2}`,
+//       cmcId: cmc.cmcId,
+//       cmcName: cmc.name,
+//       rowIndex: idx + 2,
+//       date: str(r[0]),
+//       companyId: str(r[1]),
+//       companyName: str(r[2]),
+//       industry: str(r[3]),
+//       contactName: str(r[4]) || undefined,
+//       contactDesignation: str(r[5]) || undefined,
+//       contactEmail: str(r[6]) || undefined,
+//       contactPhone: str(r[7]) || undefined,
+//       outreachChannel: str(r[8]) as OutreachChannel,
+//       activity: str(r[9]) as ActivityType,
+//       pitchType: (str(r[10]) as any) || undefined,
+//       status: str(r[11]) as OutreachStatus,
+//       nextFollowup: str(r[12]) || undefined,
+//       response: (str(r[13]) as any) || undefined,
+//       meetingDate: str(r[14]) || undefined,
+//       campusVisitDate: str(r[15]) || undefined,
+//       remarks: str(r[16]) || undefined,
+//     }));
+// }
+
+// function validateActivities(
+//   activities: ActivityRecord[],
+//   companies: Company[],
+//   cmcs: CMC[]
+// ): DataQualityIssue[] {
+//   const issues: DataQualityIssue[] = [];
+//   const companyIds = new Set(companies.map((c) => c.companyId));
+//   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//   const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+
+//   for (const a of activities) {
+//     const push = (field: string, problem: string) =>
+//       issues.push({ recordId: a.recordId, cmcName: a.cmcName, companyName: a.companyName || "(unknown)", field, problem });
+
+//     if (!a.companyId) push("Company_ID", "Missing Company ID");
+//     else if (!companyIds.has(a.companyId)) push("Company_ID", "Company ID not found in Company_Master");
+//     if (!a.companyName) push("Company_Name", "Missing Company Name");
+//     if (!a.date || !dateRe.test(a.date)) push("Date", "Missing or invalid date format (expected YYYY-MM-DD)");
+//     if (a.contactEmail && !emailRe.test(a.contactEmail)) push("Contact_Email", "Invalid email format");
+//     if (a.nextFollowup && !dateRe.test(a.nextFollowup)) push("Next_Followup", "Invalid date format");
+//     if (a.status === "Follow-up Required" && !a.nextFollowup) push("Next_Followup", "Follow-up required but no date set");
+//   }
+//   return issues;
+// }
+
+// function str(v: unknown): string {
+//   return v === undefined || v === null ? "" : String(v).trim();
+// }
+// function num(v: unknown): number {
+//   const n = Number(v);
+//   return Number.isFinite(n) ? n : 0;
+// }
+import "server-only";
+import { sheets } from "@googleapis/sheets";
+import { JWT } from "google-auth-library";
+import type {
+  ActivityRecord,
+  CMC,
+  Company,
+  DataQualityIssue,
+  OutreachChannel,
+  ActivityType,
+  OutreachStatus,
+  RawDataset,
+} from "@/types";
+import { generateMockDataset } from "@/lib/mock/generateMockData";
+
+
+const REQUIRED_ENV = [
+  "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+  "GOOGLE_PRIVATE_KEY",
+  "GOOGLE_SHEET_ID",
+] as const;
+
+function hasGoogleCredentials(): boolean {
+  return REQUIRED_ENV.every((key) => !!process.env[key]);
+}
+
+function getSheetsClient() {
+  const auth = new JWT({
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    // Vercel env vars store literal \n, so they must be un-escaped.
+    key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+  return sheets({ version: "v4", auth });
+}
+
+let cache: { data: RawDataset; fetchedAt: number } | null = null;
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes, matches the "2-5 min" spec
+
+// In dev mode, Next.js reloads this module on every file save (Fast Refresh),
+// which would normally wipe the `cache` variable above and trigger a fresh
+// Google Sheets fetch on the next page load. Stashing it on `globalThis`
+// keeps it alive across those reloads, so we don't burn API quota just from
+// editing code. In production this has no effect (module is loaded once).
+declare global {
+  // eslint-disable-next-line no-var
+  var __sheetsCache: { data: RawDataset; fetchedAt: number } | null | undefined;
+}
+if (process.env.NODE_ENV !== "production") {
+  if (globalThis.__sheetsCache) cache = globalThis.__sheetsCache;
+}
+function setCache(next: { data: RawDataset; fetchedAt: number } | null) {
+  cache = next;
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.__sheetsCache = next;
+  }
+}
+
+export async function getDataset(forceRefresh = false): Promise<RawDataset> {
+  if (!hasGoogleCredentials()) {
+    if (!cache || forceRefresh) {
+      setCache({ data: generateMockDataset(), fetchedAt: Date.now() });
+    }
+    return cache!.data;
+  }
+
+  const isFresh = cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
+  if (isFresh && !forceRefresh) {
+    return cache!.data;
+  }
+
+  try {
+    const data = await fetchFromGoogleSheets();
+    setCache({ data, fetchedAt: Date.now() });
+    return data;
+    } catch (err) {
+    console.error("Google Sheets sync failed:", err);
+    if (cache) {
+      return { ...cache.data, source: "cache" };
+    }
+    const reason = err instanceof Error ? err.message : String(err);
+    const detail = process.env.NODE_ENV === "development" ? ` Reason: ${reason}` : "";
+    throw new Error(
+      `Unable to sync Google Sheets and no cached data is available.${detail}`
+    );
+  }
+}
+
+async function fetchFromGoogleSheets(): Promise<RawDataset> {
+  const sheets = getSheetsClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
+
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const tabNames = (meta.data.sheets ?? [])
+    .map((s) => s.properties?.title)
+    .filter((t): t is string => !!t);
+
+  if (!tabNames.includes("CMC_Master")) {
+    throw new Error("CMC_Master sheet not found in the spreadsheet.");
+  }
+  if (!tabNames.includes("Company_Master")) {
+    throw new Error("Company_Master sheet not found in the spreadsheet.");
+  }
+  if (!tabNames.includes("Activity_Log")) {
+    throw new Error("Activity_Log sheet not found in the spreadsheet.");
+  }
+
+  // All three tabs, in ONE call — no more one-call-per-CMC.
+  const result = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId,
+    ranges: [
+      "CMC_Master!A2:F1000",
+      "Company_Master!A2:J5000",
+      "Activity_Log!A2:R10000",
+    ],
+  });
+  const [cmcRows, companyRows, activityRows] = (result.data.valueRanges ?? []).map(
+    (vr) => (vr.values as string[][]) ?? []
+  );
+
+  const cmcs: CMC[] = cmcRows
+  .filter((r) => r[0])
+  .map((r) => ({
+    cmcId: str(r[0]),
+    name: str(r[1]),
+    email: str(r[2]),
+    active: str(r[3]).toUpperCase() === "TRUE",
+    section: str(r[4]),
+    contactNumber: str(r[5]),
+    sheetName: str(r[1]).replace(/\s+/g, "_"),
+  }));
+  const cmcById = new Map(cmcs.map((c) => [c.cmcId, c]));
+
+  const companies: Company[] = companyRows
+    .filter((r) => r[0])
+    .map((r) => ({
+      companyId: str(r[0]),
+      companyName: str(r[1]),
+      industry: str(r[2]),
+      website: str(r[3]) || undefined,
+      assignedCmcId: str(r[4]) || undefined,
+      primaryContact: str(r[5]) || undefined,
+      contactEmail: str(r[6]) || undefined,
+      contactPhone: str(r[7]) || undefined,
+      status: (str(r[8]) as OutreachStatus) || undefined,
+      createdDate: str(r[9]) || undefined,
+    }));
+
+  const activities = rowsToActivities(activityRows, cmcById);
+  const issues = validateActivities(activities, companies, cmcs);
+
+  return {
+    cmcs,
+    companies,
+    activities,
+    issues,
+    lastSynced: new Date().toISOString(),
+    source: "google-sheets",
+  };
+}
+
+function rowsToActivities(
+  rows: string[][],
+  cmcById: Map<string, CMC>
+): ActivityRecord[] {
+  return rows
+    .filter((r) => r[0] && (r[1] || r[3])) // has a CMC_ID, and a date or company name
+    .map((r, idx) => {
+      const cmcId = str(r[0]);
+      const cmc = cmcById.get(cmcId);
+      return {
+        recordId: `AL-${idx + 2}`,
+        cmcId,
+        cmcName: cmc?.name ?? cmcId, // falls back to the raw ID if it doesn't match CMC_Master
+        rowIndex: idx + 2,
+        date: str(r[1]),
+        companyId: str(r[2]),
+        companyName: str(r[3]),
+        industry: str(r[4]),
+        contactName: str(r[5]) || undefined,
+        contactDesignation: str(r[6]) || undefined,
+        contactEmail: str(r[7]) || undefined,
+        contactPhone: str(r[8]) || undefined,
+        outreachChannel: str(r[9]) as OutreachChannel,
+        activity: str(r[10]) as ActivityType,
+        pitchType: (str(r[11]) as any) || undefined,
+        status: str(r[12]) as OutreachStatus,
+        nextFollowup: str(r[13]) || undefined,
+        response: (str(r[14]) as any) || undefined,
+        meetingDate: str(r[15]) || undefined,
+        campusVisitDate: str(r[16]) || undefined,
+        remarks: str(r[17]) || undefined,
+      };
+    });
+}
+
+function validateActivities(
+  activities: ActivityRecord[],
+  companies: Company[],
+  cmcs: CMC[]
+): DataQualityIssue[] {
+  const issues: DataQualityIssue[] = [];
+  const companyIds = new Set(companies.map((c) => c.companyId));
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+
+  for (const a of activities) {
+    const push = (field: string, problem: string) =>
+      issues.push({ recordId: a.recordId, cmcName: a.cmcName, companyName: a.companyName || "(unknown)", field, problem });
+
+    if (!a.companyId) push("Company_ID", "Missing Company ID");
+    else if (!companyIds.has(a.companyId)) push("Company_ID", "Company ID not found in Company_Master");
+    if (!a.companyName) push("Company_Name", "Missing Company Name");
+    if (!a.date || !dateRe.test(a.date)) push("Date", "Missing or invalid date format (expected YYYY-MM-DD)");
+    if (a.contactEmail && !emailRe.test(a.contactEmail)) push("Contact_Email", "Invalid email format");
+    if (a.nextFollowup && !dateRe.test(a.nextFollowup)) push("Next_Followup", "Invalid date format");
+    if (a.status === "Follow-up Required" && !a.nextFollowup) push("Next_Followup", "Follow-up required but no date set");
+  }
+  return issues;
+}
+
+function str(v: unknown): string {
+  return v === undefined || v === null ? "" : String(v).trim();
+}
+function num(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}

@@ -35,6 +35,7 @@ export function CmcCompaniesTable({
                 <th className="px-5 py-4 text-left text-[10px] font-bold uppercase tracking-wider">Channel</th>
                 <th className="px-5 py-4 text-left text-[10px] font-bold uppercase tracking-wider">Status</th>
                 <th className="px-5 py-4 text-left text-[10px] font-bold uppercase tracking-wider">Next Follow-up</th>
+                <th className="px-5 py-4 text-left text-[10px] font-bold uppercase tracking-wider">Remarks</th>
               </tr>
             </thead>
 
@@ -76,6 +77,7 @@ export function CmcCompaniesTable({
                     </td>
 
                     <td className="px-5 py-4 text-xs text-[#777]">{formatDate(latest?.nextFollowup)}</td>
+                    <td className="px-5 py-4 text-xs text-[#777]">{latest?.remarks ?? "—" }</td>
                   </tr>
                 );
               })}

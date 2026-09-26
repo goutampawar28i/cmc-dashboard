@@ -57,6 +57,13 @@ export default async function CompanyDetailPage({ params }: { params: { companyI
                 <p className="mt-0.5 text-xs text-muted">
                   {r.outreachChannel} {r.response ? `· Response: ${r.response}` : ""} {r.remarks ? `· ${r.remarks}` : ""}
                 </p>
+                {(r.meetingDate || r.campusVisitDate) && (
+                  <p className="mt-0.5 text-xs text-muted">
+                    {r.meetingDate ? `Meeting: ${formatDate(r.meetingDate)}` : ""}
+                    {r.meetingDate && r.campusVisitDate ? " · " : ""}
+                    {r.campusVisitDate ? `Campus Visit: ${formatDate(r.campusVisitDate)}` : ""}
+                  </p>
+                )}
               </div>
             ))}
             {records.length === 0 && <p className="px-4 py-6 text-sm text-muted">No outreach recorded yet.</p>}
