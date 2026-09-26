@@ -141,11 +141,11 @@ const cmcs: CMC[] = cmcRows
 }
 
 async function readRange(
-  sheets: ReturnType<typeof google.sheets>,
+  sheetsClient: ReturnType<typeof getSheetsClient>,
   spreadsheetId: string,
   range: string
 ): Promise<string[][]> {
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+  const res = await sheetsClient.spreadsheets.values.get({ spreadsheetId, range });
   return (res.data.values as string[][]) ?? [];
 }
 
