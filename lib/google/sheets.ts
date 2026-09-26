@@ -1,5 +1,6 @@
 import "server-only";
-import { google } from "googleapis";
+import { sheets } from "@googleapis/sheets";
+import { JWT } from "google-auth-library";
 import type {
   ActivityRecord,
   CMC,
@@ -24,24 +25,19 @@ function hasGoogleCredentials(): boolean {
 }
 
 function getSheetsClient() {
-  const auth = new google.auth.JWT({
+  const auth = new JWT({
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    // Vercel env vars store literal \n, so they must be un-escaped.
     key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
-  return google.sheets({ version: "v4", auth });
+  return sheets({ version: "v4", auth });
 }
 
-// Simple in-memory cache so we don't hit the Sheets API on every request.
-// Fine for a single Vercel serverless region + low mentor traffic. Swap for
-// a shared cache (Vercel KV / Redis) if you outgrow this.
 let cache: { data: RawDataset; fetchedAt: number } | null = null;
 const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes, matches the "2-5 min" spec
 
 export async function getDataset(forceRefresh = false): Promise<RawDataset> {
   if (!hasGoogleCredentials()) {
-    // No Google Cloud project configured yet — use mock data.
     if (!cache || forceRefresh) {
       cache = { data: generateMockDataset(), fetchedAt: Date.now() };
     }
@@ -60,7 +56,6 @@ export async function getDataset(forceRefresh = false): Promise<RawDataset> {
     } catch (err) {
     console.error("Google Sheets sync failed:", err);
     if (cache) {
-      // Serve the last good data with a clear staleness marker rather than crash.
       return { ...cache.data, source: "cache" };
     }
     const reason = err instanceof Error ? err.message : String(err);
@@ -93,16 +88,16 @@ async function fetchFromGoogleSheets(): Promise<RawDataset> {
   ]);
 
   const cmcs: CMC[] = cmcRows
-    .filter((r) => r[0])
-    .map((r) => ({
-      cmcId: str(r[0]),
-      name: str(r[1]),
-      email: str(r[2]),
-      batch: str(r[3]),
-      active: str(r[4]).toUpperCase() === "TRUE",
-      assignedTarget: num(r[5]),
-      sheetName: str(r[1]).replace(/\s+/g, "_"),
-    }));
+  .filter((r) => r[0])
+  .map((r) => ({
+    cmcId: str(r[0]),
+    name: str(r[1]),
+    email: str(r[2]),
+    batch: "",
+    active: str(r[3]).toUpperCase() === "TRUE",
+    assignedTarget: num(r[4]),
+    sheetName: str(r[1]).replace(/\s+/g, "_"),
+  }));
 
   const companies: Company[] = companyRows
     .filter((r) => r[0])
@@ -119,8 +114,7 @@ async function fetchFromGoogleSheets(): Promise<RawDataset> {
       createdDate: str(r[9]) || undefined,
     }));
 
-  // Discover and read every CMC's individual activity tab. Sheets that don't
-  // exist yet (a CMC who hasn't been given a tab) are skipped, not errored.
+
   const activityResults = await Promise.all(
     cmcs.map(async (cmc) => {
       if (!tabNames.includes(cmc.sheetName)) return [];
