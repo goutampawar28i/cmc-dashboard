@@ -10,23 +10,24 @@
     "seed:check": "tsx scripts/check-mock-data.ts"
   },
   "dependencies": {
+    "@googleapis/sheets": "^18.0.1",
+    "clsx": "2.1.1",
+    "date-fns": "3.6.0",
+    "google-auth-library": "^11.1.0",
     "next": "14.2.35",
+    "next-auth": "4.24.7",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "next-auth": "4.24.7",
-    "googleapis": "144.0.0",
-    "recharts": "2.12.7",
-    "date-fns": "3.6.0",
-    "clsx": "2.1.1"
+    "recharts": "2.12.7"
   },
   "devDependencies": {
-    "typescript": "5.5.4",
     "@types/node": "20.14.15",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
-    "tailwindcss": "3.4.10",
-    "postcss": "8.4.41",
     "autoprefixer": "10.4.20",
-    "tsx": "4.19.0"
+    "postcss": "8.4.41",
+    "tailwindcss": "3.4.10",
+    "tsx": "4.19.0",
+    "typescript": "5.5.4"
   }
 }
