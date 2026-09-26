@@ -25,12 +25,6 @@ export function CmcActivityFunnel({
       <div className="neo-card p-5 md:p-6">
         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <SectionHeading eyebrow="Activity" title="Daily Activity" />
-
-          <div className="flex border-2 border-[#111] bg-[#f4f4f0] p-1">
-            <button className="bg-[#111] px-3 py-1.5 text-[11px] font-bold text-white">7D</button>
-            <button className="px-3 py-1.5 text-[11px] font-bold text-[#666]">30D</button>
-            <button className="px-3 py-1.5 text-[11px] font-bold text-[#666]">90D</button>
-          </div>
         </div>
 
         <div className="rounded-lg border border-[#ddd] bg-[#fafafa] p-3">

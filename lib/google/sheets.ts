@@ -87,15 +87,14 @@ async function fetchFromGoogleSheets(): Promise<RawDataset> {
     readRange(sheets, spreadsheetId, "Company_Master!A2:J5000"),
   ]);
 
-  const cmcs: CMC[] = cmcRows
+const cmcs: CMC[] = cmcRows
   .filter((r) => r[0])
   .map((r) => ({
     cmcId: str(r[0]),
     name: str(r[1]),
     email: str(r[2]),
-    batch: "",
     active: str(r[3]).toUpperCase() === "TRUE",
-    assignedTarget: num(r[4]),
+    section: str(r[4]),
     sheetName: str(r[1]).replace(/\s+/g, "_"),
   }));
 

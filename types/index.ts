@@ -61,7 +61,7 @@ export interface CMC {
   cmcId: string;
   name: string;
   email: string;
-  batch: string;
+  section: string;
   active: boolean;
   assignedTarget: number;
   sheetName: string; // tab name this CMC's activity lives in, e.g. "Rahul_Sharma"

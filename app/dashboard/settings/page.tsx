@@ -14,6 +14,8 @@ export default async function SettingsPage() {
     { label: "Allowed mentor emails", value: process.env.ALLOWED_MENTOR_EMAILS || "Not restricted yet" },
     { label: "Data source", value: dataset.source },
     { label: "Last synced", value: dataset.lastSynced },
+    { label: "Last synced", value: dataset.lastSynced },
+    { label: "For any questions or issues", value: "Goutam Pawar — 9399055080"}
   ];
 
   return (

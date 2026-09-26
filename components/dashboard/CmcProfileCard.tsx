@@ -2,11 +2,13 @@ import type { CMC } from "@/types";
 
 export function CmcProfileCard({ cmc }: { cmc: CMC }) {
   return (
-    <section className="neo-card overflow-hidden">
+    <section className="overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-sm">
       <div className="grid lg:grid-cols-[1fr_auto]">
+        {/* Profile Info */}
         <div className="p-6 md:p-8">
-          <div className="mb-6 flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 border-[#111] bg-[#ff5a36] text-lg font-black text-white shadow-[4px_4px_0_#111]">
+          <div className="flex items-center gap-4">
+            {/* Avatar */}
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#ff5a36] text-lg font-black text-white shadow-sm">
               {cmc.name
                 .split(" ")
                 .map((n) => n[0])
@@ -15,26 +17,37 @@ export function CmcProfileCard({ cmc }: { cmc: CMC }) {
                 .toUpperCase()}
             </div>
 
-            <div>
+            {/* Name */}
+            <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#737373]">
                 CMC Profile
               </p>
 
-              <h1 className="mt-1 text-2xl font-black tracking-tight md:text-4xl">
+              <h1 className="mt-1 truncate text-2xl font-black tracking-tight md:text-3xl">
                 {cmc.name}
               </h1>
+
+              <p className="mt-1 truncate text-sm text-[#666]">
+                {cmc.email}
+              </p>
             </div>
           </div>
-
-          <p className="text-sm text-[#666]">{cmc.email}</p>
         </div>
 
-        <div className="grid grid-cols-2 border-t-2 border-[#111] lg:grid-cols-4 lg:border-l-2 lg:border-t-0">
-          <ProfileStat label="CMC ID" value={cmc.cmcId} />
-          <ProfileStat label="Batch" value={cmc.batch} />
-          <ProfileStat label="Target" value={cmc.assignedTarget} />
+        {/* Stats */}
+        <div className="grid grid-cols-3 border-t border-[#e5e5e5] lg:border-l lg:border-t-0">
+          <ProfileStat
+            label="CMC ID"
+            value={cmc.cmcId}
+          />
 
-          <div className="flex flex-col justify-center border-t border-[#ddd] bg-[#fafafa] p-5 lg:border-t-0">
+          <ProfileStat
+            label="Section"
+            value={cmc.section}
+          />
+
+          {/* Status */}
+          <div className="flex min-w-[120px] flex-col justify-center bg-[#fafafa] p-5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#888]">
               Status
             </span>
@@ -69,12 +82,14 @@ function ProfileStat({
   value: string | number;
 }) {
   return (
-    <div className="flex min-w-0 flex-col justify-center border-t border-[#ddd] bg-[#fafafa] p-5 lg:border-t-0 lg:border-l">
+    <div className="flex min-w-[120px] flex-col justify-center border-r border-[#e5e5e5] bg-[#fafafa] p-5 last:border-r-0">
       <span className="text-[10px] font-bold uppercase tracking-wider text-[#888]">
         {label}
       </span>
 
-      <span className="mt-2 truncate text-sm font-bold">{value}</span>
+      <span className="mt-2 truncate text-sm font-bold text-[#111]">
+        {value}
+      </span>
     </div>
   );
 }

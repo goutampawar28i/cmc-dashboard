@@ -19,10 +19,6 @@ export default async function CmcListPage() {
 
       <main className="min-h-full bg-[#f4f4f0] p-4 md:p-6 lg:p-8">
 
-        {/* =====================================================
-            PAGE INTRO
-        ====================================================== */}
-
         <section className="mb-6">
 
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -43,8 +39,6 @@ export default async function CmcListPage() {
               </p>
 
             </div>
-
-            {/* Dataset count */}
 
             <div
               className="
